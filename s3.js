@@ -258,5 +258,7 @@ function shutDown(){
 // close connections when the Node process ends
 process.on('SIGINT', shutDown);
 
+c.setTerminalTitle("Server");
+
 c.logInfo('Waiting for other ' + 
   (clientNumberLimit - players.length) + ' to begin.');
