@@ -24,7 +24,11 @@ subscriber.on('message', function (data) {
   }
   else if(message.type=='stop'){
     currentState = 'Stopped';
-    c.logOK('End of this session now, thank you!');
+    shutDown();
+  }  
+  else if(message.type=='restart?'){
+    c.logWarn("Want to play it again? y/n");
+    currentState = 'WaitInputRestartAnswer';
   }
   else
   {
@@ -52,6 +56,7 @@ request.on('message', function (data) {
         // fail to connect, set to Stopped
         c.logError(message.reason);
         currentState = 'Stopped'; 
+        shutDown();
       }else{
         handleUnexpectedMessage(data, request);
       }
@@ -59,17 +64,23 @@ request.on('message', function (data) {
     case 'WaitNextQuestion':
       if(message.type=='stop'){
         currentState = 'Stopped'; 
-        subscriber.close();
-        request.close();
-        process.exit();
+        shutDown();
       }
       else{
         handleUnexpectedMessage(data, request); 
       }
       break;
     case 'WaitInputAnswer':
-      // should not receive response
       handleUnexpectedMessage(data,request);
+      break;
+    case 'WaitInputRestartAnswer':
+      if(message.type=='stop'){
+        currentState = 'Stopped'; 
+        shutDown();
+      }
+      else{
+        handleUnexpectedMessage(data, request); 
+      }
       break;
     case 'Stopped':
       handleUnexpectedMessage(data,request);
@@ -90,6 +101,15 @@ process.stdin.on('data', function (userInput) {
     message.answer = input;
     request.send(JSON.stringify(message));
     currentState='WaitNextQuestion';
+  }
+  else if(currentState=='WaitInputRestartAnswer'){
+    let input = userInput.toString().trim();
+    let message = {};
+    message.type = 'restart';
+    message.clientId = player.clientId;
+    message.answer = input;
+    request.send(JSON.stringify(message));
+    currentState='WaitNextQuestion';    
   }
   else
   {
@@ -114,10 +134,12 @@ function handleUnexpectedMessage(data, request)
   c.logWarn('Drop illegal message: ' + data.toString());
 }
 
-// close connections when the Node process ends
-process.on('SIGINT', function () {
+function shutDown(){
   c.logWarn('Shutting down...'.yellow);
   subscriber.close();
   request.close();
-  process.exit();
-});
+  process.exit();  
+}
+
+// close connections when the Node process ends
+process.on('SIGINT', shutDown);
